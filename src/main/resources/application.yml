@@ -16,18 +16,19 @@ spring:
       validation-timeout: 10000
       idle-timeout: 600000
       max-lifetime: 1800000
-  mail:
-    host:smtp.qq.com
-    port:587
-    username:764124654@qq.com
-    password:pcmysjfcbohtbbdj
-    properties:smtps
+  spring:
       mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
+      host: smtp.qq.com
+      port: 587
+      username: 764124654@qq.com
+      password: pcmysjfcbohtbbdj
+      properties:
+        mail:
+          smtp:
+            auth: true
+            starttls:
+              enable: true
+              required: true
   sql:
     init:
       mode: always
