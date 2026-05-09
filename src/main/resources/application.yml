@@ -33,18 +33,17 @@ spring:
   #     mail.smtp.starttls.enable: true
   #     mail.smtp.starttls.required: true
   mail:
-    host: smtp.163.com
-    port: 465  # 163 推荐用 SSL 端口，比 587 更稳定
-    username: 18759390710@163.com  # 你的 163 邮箱账号
-    password: ${MAIL_PASSWORD:}     # 占位符，本地填 163 授权码
+    host: smtp.office365.com
+    port: 587
+    username: wshandyy@outlook.com
+    password: ${MAIL_PASSWORD:}  # 这里填微软账号密码（或应用密码）
     default-encoding: UTF-8
     properties:
       mail.smtp.auth: true
-      mail.smtp.ssl.enable: true  # 开启 SSL，适配 465 端口
-      mail.smtp.socketFactory.class: javax.net.ssl.SSLSocketFactory
-      mail.smtp.connectiontimeout: 5000
-      mail.smtp.timeout: 5000
-      mail.smtp.writetimeout: 5000
+      mail.smtp.starttls.enable: true
+      mail.smtp.connectiontimeout: 20000
+      mail.smtp.timeout: 20000
+      mail.smtp.writetimeout: 20000
   # 数据库初始化配置
   sql:
     init:
