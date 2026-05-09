@@ -1,14 +1,19 @@
+# 服务器配置
 server:
   port: 8888
 
+# Spring 核心配置（所有子项缩进2个空格，层级100%正确）
 spring:
+  # 应用名称
   application:
     name: crm-backend
+  # 数据库配置（空占位，本地在application-local.yml填实际值）
   datasource:
     url:
     username:
     password:
     driver-class-name: com.mysql.cj.jdbc.Driver
+    # 连接池配置（保留你原有的参数）
     hikari:
       maximum-pool-size: 1
       minimum-idle: 1
@@ -16,7 +21,7 @@ spring:
       validation-timeout: 10000
       idle-timeout: 600000
       max-lifetime: 1800000
- spring:
+  # 邮件配置（归到spring节点下，缩进正确）
   mail:
     host: smtp.qq.com
     port: 587
@@ -27,14 +32,15 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
       mail.smtp.starttls.required: true
+  # 数据库初始化配置
   sql:
     init:
       mode: always
+  # 激活本地配置（归到spring节点下，修复平级错误）
+  profiles:
+    active: local
 
-# 激活本地配置
-profiles:
-  active: local
-
+# MyBatis-Plus 配置
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
@@ -43,10 +49,12 @@ mybatis-plus:
     db-config:
       id-type: auto
 
+# JWT 配置（保留通用密钥，本地可替换）
 jwt:
   secret: crm-secret-key-2024-spring-boot-jwt-token
   expiration: 86400000
 
+# 日志配置
 logging:
   level:
     com.example.crm: DEBUG
