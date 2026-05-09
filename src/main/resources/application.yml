@@ -17,11 +17,11 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
   mail:
-    host:
-    port:
-    username:
-    password:
-    properties:
+    host:smtp.qq.com
+    port:587
+    username:764124654@qq.com
+    password:pcmysjfcbohtbbdj
+    properties:smtps
       mail:
         smtp:
           auth: true
