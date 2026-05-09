@@ -1,0 +1,53 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: crm-backend
+  datasource:
+    url:
+    username:
+    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 1
+      minimum-idle: 1
+      connection-timeout: 60000
+      validation-timeout: 10000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  mail:
+    host:
+    port:
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+  sql:
+    init:
+      mode: always
+
+# 激活本地配置
+profiles:
+  active: local
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+jwt:
+  secret: crm-secret-key-2024-spring-boot-jwt-token
+  expiration: 86400000
+
+logging:
+  level:
+    com.example.crm: DEBUG
