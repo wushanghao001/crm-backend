@@ -34,7 +34,7 @@ spring:
   #     mail.smtp.starttls.required: true
   mail:
     host: smtp.office365.com
-    port: 587
+    port: 465
     username: wshandyy@outlook.com
     password: ${MAIL_PASSWORD:}  # 这里填微软账号密码（或应用密码）
     default-encoding: UTF-8
