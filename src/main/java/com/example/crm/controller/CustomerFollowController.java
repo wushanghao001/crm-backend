@@ -7,6 +7,7 @@ import com.example.crm.service.CustomerFollowService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -57,5 +58,12 @@ public class CustomerFollowController {
     public ResponseEntity<ApiResponse<Void>> deleteFollow(@PathVariable Integer id) {
         customerFollowService.deleteFollow(id);
         return ResponseEntity.ok(ApiResponse.success("删除成功", null));
+    }
+
+    @GetMapping("/pending-tasks")
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getPendingFollowTasks(
+            @RequestParam(required = false) Integer customerId) {
+        List<Map<String, Object>> tasks = customerFollowService.getPendingFollowTasks(customerId);
+        return ResponseEntity.ok(ApiResponse.success(tasks));
     }
 }

@@ -26,9 +26,12 @@ public class ProductController {
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) Integer status) {
-        
-        PageResponse<Product> response = productService.listProducts(pageNum, pageSize, keyword, category, status);
+            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Long projectCodeId,
+            @RequestParam(required = false) Long materialCodeId,
+            @RequestParam(required = false) Long brandCodeId) {
+
+        PageResponse<Product> response = productService.listProducts(pageNum, pageSize, keyword, category, status, projectCodeId, materialCodeId, brandCodeId);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -75,5 +78,16 @@ public class ProductController {
             @RequestParam(required = false) Long excludeId) {
         boolean exists = productService.checkCodeExists(code, excludeId);
         return ResponseEntity.ok(ApiResponse.success(Map.of("exists", exists)));
+    }
+
+    @PutMapping("/{id}/stock")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<ApiResponse<Void>> adjustStock(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> request) {
+        Integer newStock = (Integer) request.get("stock");
+        String remark = (String) request.get("remark");
+        productService.adjustStock(id, newStock, remark);
+        return ResponseEntity.ok(ApiResponse.success("库存调整成功", null));
     }
 }

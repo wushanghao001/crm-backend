@@ -1,6 +1,7 @@
 package com.example.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.crm.dto.OrderDetailResponse;
@@ -27,11 +28,13 @@ public class OrderService {
     private final OrderMapper orderMapper;
     private final OrderItemMapper orderItemMapper;
     private final CustomerMapper customerMapper;
+    private final StockLogService stockLogService;
 
-    public OrderService(OrderMapper orderMapper, OrderItemMapper orderItemMapper, CustomerMapper customerMapper) {
+    public OrderService(OrderMapper orderMapper, OrderItemMapper orderItemMapper, CustomerMapper customerMapper, StockLogService stockLogService) {
         this.orderMapper = orderMapper;
         this.orderItemMapper = orderItemMapper;
         this.customerMapper = customerMapper;
+        this.stockLogService = stockLogService;
     }
 
     public PageResponse<Order> listOrders(Integer pageNum, Integer pageSize, String keyword, String status, String payStatus) {
@@ -107,6 +110,12 @@ public class OrderService {
             dto.setOrderId(item.getOrderId());
             dto.setProductName(item.getProductName());
             dto.setProductCode(item.getProductCode());
+            dto.setProjectCodeId(item.getProjectCodeId());
+            dto.setProjectCodeName(item.getProjectCodeName());
+            dto.setMaterialCodeId(item.getMaterialCodeId());
+            dto.setMaterialCodeName(item.getMaterialCodeName());
+            dto.setBrandCodeId(item.getBrandCodeId());
+            dto.setBrandCodeName(item.getBrandCodeName());
             dto.setUnitPrice(item.getUnitPrice());
             dto.setQuantity(item.getQuantity());
             dto.setSubtotal(item.getSubtotal());
@@ -130,6 +139,14 @@ public class OrderService {
             throw new IllegalArgumentException("只能为自己负责的客户创建订单");
         }
 
+        if (items != null && !items.isEmpty()) {
+            for (OrderItem item : items) {
+                if (!stockLogService.checkStockAvailable(item.getProductId(), item.getQuantity())) {
+                    throw new IllegalArgumentException("产品【" + item.getProductName() + "】库存不足，无法下单");
+                }
+            }
+        }
+
         order.setOrderNo(generateOrderNo());
         order.setCreatorId(currentUser.getId());
         if (order.getStatus() == null || order.getStatus().isEmpty()) {
@@ -137,6 +154,9 @@ public class OrderService {
         }
         if (order.getPayStatus() == null || order.getPayStatus().isEmpty()) {
             order.setPayStatus("unpaid");
+        }
+        if ("paid".equals(order.getPayStatus())) {
+            order.setPaidAt(LocalDateTime.now());
         }
         order.setCreatedAt(LocalDateTime.now());
         order.setUpdatedAt(LocalDateTime.now());
@@ -163,6 +183,11 @@ public class OrderService {
             for (OrderItem item : items) {
                 item.setOrderId(order.getId());
                 orderItemMapper.insert(item);
+                if ("paid".equals(order.getPayStatus())) {
+                    stockLogService.deductStock(item.getProductId(), order.getId(), item.getQuantity(), "订单创建时直接扣减：" + order.getOrderNo());
+                } else {
+                    stockLogService.lockStock(item.getProductId(), order.getId(), item.getQuantity(), "订单预占：" + order.getOrderNo());
+                }
             }
         }
 
@@ -185,6 +210,9 @@ public class OrderService {
                 throw new IllegalArgumentException("无权修改此订单");
             }
             if ("paid".equals(existing.getPayStatus()) || "completed".equals(existing.getStatus())) {
+                if ("refunded".equals(order.getPayStatus())) {
+                    throw new IllegalArgumentException("已支付订单退款需联系管理员处理");
+                }
                 throw new IllegalArgumentException("已支付或已完成的订单不可修改");
             }
         }
@@ -196,12 +224,38 @@ public class OrderService {
         existing.setDiscountAmount(order.getDiscountAmount());
         existing.setPaidAmount(order.getPaidAmount());
         existing.setStatus(order.getStatus());
+
+        String oldPayStatus = existing.getPayStatus();
         existing.setPayStatus(order.getPayStatus());
+
+        if ("paid".equals(order.getPayStatus()) && !"paid".equals(oldPayStatus)) {
+            existing.setPaidAt(LocalDateTime.now());
+            List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+            for (OrderItem item : orderItems) {
+                stockLogService.deductStock(item.getProductId(), id, item.getQuantity(), "订单支付确认扣减：" + existing.getOrderNo());
+            }
+        }
+
+        if (isAdmin && "refunded".equals(order.getPayStatus()) && "paid".equals(oldPayStatus)) {
+            existing.setPayStatus("refunded");
+            List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+            for (OrderItem item : orderItems) {
+                stockLogService.refundStock(item.getProductId(), id, item.getQuantity(), "管理员退款：" + existing.getOrderNo());
+            }
+        }
+
         existing.setPaymentMethod(order.getPaymentMethod());
         existing.setRemark(order.getRemark());
         existing.setUpdatedAt(LocalDateTime.now());
 
         orderMapper.updateById(existing);
+
+        if (isAdmin && "refunded".equals(order.getPayStatus()) && "paid".equals(oldPayStatus)) {
+            LambdaUpdateWrapper<Order> updateWrapper = new LambdaUpdateWrapper<>();
+            updateWrapper.eq(Order::getId, id);
+            updateWrapper.set(Order::getPaidAt, null);
+            orderMapper.update(null, updateWrapper);
+        }
 
         return existing;
     }
@@ -221,6 +275,17 @@ public class OrderService {
             if (customer == null || !customer.getCreatorId().equals(currentUser.getId())) {
                 throw new IllegalArgumentException("无权取消此订单");
             }
+        }
+
+        if (!"unpaid".equals(existing.getPayStatus()) && !"pending".equals(existing.getStatus())) {
+            if ("paid".equals(existing.getPayStatus())) {
+                throw new IllegalArgumentException("已支付订单无法直接取消，请申请退款");
+            }
+        }
+
+        List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+        for (OrderItem item : orderItems) {
+            stockLogService.releaseStock(item.getProductId(), id, item.getQuantity(), "订单取消释放：" + existing.getOrderNo());
         }
 
         existing.setStatus("cancelled");
@@ -253,11 +318,21 @@ public class OrderService {
             throw new IllegalArgumentException("只能对已支付订单申请退款");
         }
 
-        existing.setPayStatus("refunding");
+        List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+        for (OrderItem item : orderItems) {
+            stockLogService.refundStock(item.getProductId(), id, item.getQuantity(), "退款完成库存回滚：" + existing.getOrderNo());
+        }
+
+        existing.setPayStatus("refunded");
         existing.setRemark((existing.getRemark() != null ? existing.getRemark() : "") + "\n退款原因: " + reason);
         existing.setUpdatedAt(LocalDateTime.now());
 
         orderMapper.updateById(existing);
+
+        LambdaUpdateWrapper<Order> updateWrapper = new LambdaUpdateWrapper<>();
+        updateWrapper.eq(Order::getId, id);
+        updateWrapper.set(Order::getPaidAt, null);
+        orderMapper.update(null, updateWrapper);
 
         return existing;
     }
@@ -270,8 +345,22 @@ public class OrderService {
         }
 
         User currentUser = getCurrentUser();
-        if (!"admin".equals(currentUser.getRole())) {
-            throw new IllegalArgumentException("无权删除订单");
+        boolean isAdmin = "admin".equals(currentUser.getRole());
+
+        if (!isAdmin) {
+            if (!currentUser.getId().equals(order.getCreatorId())) {
+                throw new IllegalArgumentException("只能删除自己创建的订单");
+            }
+            if ("paid".equals(order.getPayStatus()) || "completed".equals(order.getStatus())) {
+                throw new IllegalArgumentException("已支付或已完成的订单无法删除");
+            }
+        }
+
+        if (!"paid".equals(order.getPayStatus()) && !"completed".equals(order.getStatus())) {
+            List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+            for (OrderItem item : orderItems) {
+                stockLogService.releaseStock(item.getProductId(), id, item.getQuantity(), "订单删除释放：" + order.getOrderNo());
+            }
         }
 
         orderMapper.deleteById(id);
@@ -285,13 +374,26 @@ public class OrderService {
         if (!isAdmin) {
             for (Long id : ids) {
                 Order order = orderMapper.selectById(id);
-                if (order == null || !order.getCreatorId().equals(currentUser.getId())) {
+                if (order == null) {
+                    throw new IllegalArgumentException("订单不存在，ID: " + id);
+                }
+                if (!order.getCreatorId().equals(currentUser.getId())) {
                     throw new IllegalArgumentException("只能删除自己创建的订单");
+                }
+                if ("paid".equals(order.getPayStatus()) || "completed".equals(order.getStatus())) {
+                    throw new IllegalArgumentException("已支付或已完成的订单无法删除");
                 }
             }
         }
 
         for (Long id : ids) {
+            Order order = orderMapper.selectById(id);
+            if (order != null && !"paid".equals(order.getPayStatus()) && !"completed".equals(order.getStatus())) {
+                List<OrderItem> orderItems = orderItemMapper.findByOrderId(id);
+                for (OrderItem item : orderItems) {
+                    stockLogService.releaseStock(item.getProductId(), id, item.getQuantity(), "订单删除释放：" + order.getOrderNo());
+                }
+            }
             orderMapper.deleteById(id);
         }
     }

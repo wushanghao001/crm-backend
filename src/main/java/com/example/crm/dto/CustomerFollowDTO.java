@@ -2,6 +2,7 @@ package com.example.crm.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -21,4 +22,8 @@ public class CustomerFollowDTO {
     private String followUserName;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private String contactName;
+    private BigDecimal totalPaidAmount;
+    private String currentStage;
 }

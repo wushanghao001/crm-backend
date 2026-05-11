@@ -1,6 +1,8 @@
 
 package com.example.crm.controller;
 
+import java.util.List;
+import java.util.Map;
 import com.example.crm.dto.ApiResponse;
 import com.example.crm.dto.PageResponse;
 import com.example.crm.entity.ServiceTicket;
@@ -55,5 +57,15 @@ public class ServiceTicketController {
     public ResponseEntity<ApiResponse<Void>> deleteTicket(@PathVariable Long id) {
         serviceTicketService.deleteTicket(id);
         return ResponseEntity.ok(ApiResponse.success("删除成功", null));
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<ApiResponse<Void>> batchDeleteTickets(@RequestBody Map<String, List<Long>> request) {
+        List<Long> ids = request.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.error(400, "请选择要删除的服务单"));
+        }
+        serviceTicketService.batchDeleteTickets(ids);
+        return ResponseEntity.ok(ApiResponse.success("批量删除成功", null));
     }
 }

@@ -182,30 +182,47 @@ public class AuthService {
     }
 
     private UserResponse convertToUserResponse(User user) {
-        UserResponse response = new UserResponse();
-        response.setId(user.getId());
-        response.setUsername(user.getUsername());
-        response.setEmail(user.getEmail());
-        response.setPhone(user.getPhone());
-        response.setRole(user.getRole());
+        try {
+            System.out.println("=== convertToUserResponse: Starting conversion for user: " + user.getUsername());
+            UserResponse response = new UserResponse();
+            System.out.println("=== convertToUserResponse: Setting basic fields");
+            response.setId(user.getId());
+            response.setUsername(user.getUsername());
+            response.setEmail(user.getEmail());
+            response.setPhone(user.getPhone());
+            response.setRole(user.getRole());
 
-        if ("admin".equals(user.getRole())) {
-            response.setPermissions(new String[]{"customer:view", "customer:add", "customer:edit", "customer:delete",
-                "contact:view", "contact:add", "contact:edit", "contact:delete",
-                "interaction:view", "interaction:add", "interaction:edit", "interaction:delete",
-                "order:view", "order:add", "order:edit", "order:delete",
-                "churn:view", "opportunity:view", "service:view", "product:view",
-                "statistics:view", "user:view", "role:view", "log:view"});
-        } else {
-            String permissions = user.getPermissions();
-            if (permissions != null && !permissions.isEmpty()) {
-                response.setPermissions(permissions.split(","));
+            System.out.println("=== convertToUserResponse: Setting permissions for role: " + user.getRole());
+            if ("admin".equals(user.getRole())) {
+                response.setPermissions(new String[]{"customer:view", "customer:add", "customer:edit", "customer:delete",
+                    "contact:view", "contact:add", "contact:edit", "contact:delete",
+                    "interaction:view", "interaction:add", "interaction:edit", "interaction:delete",
+                    "order:view", "order:add", "order:edit", "order:delete",
+                    "churn:view", "opportunity:view", "service:view", "product:view",
+                    "statistics:view", "user:view", "role:view", "log:view"});
             } else {
-                response.setPermissions(new String[]{});
+                String permissions = user.getPermissions();
+                System.out.println("=== convertToUserResponse: User permissions length: " + (permissions != null ? permissions.length() : "null"));
+                if (permissions != null && !permissions.isEmpty()) {
+                    // 防止权限字符串过长导致split耗时
+                    if (permissions.length() > 10000) {
+                        System.out.println("=== WARNING: Permissions string too long, truncating");
+                        permissions = permissions.substring(0, 10000);
+                    }
+                    response.setPermissions(permissions.split(","));
+                } else {
+                    response.setPermissions(new String[]{});
+                }
             }
-        }
 
-        response.setCreatedAt(user.getCreatedAt());
-        return response;
+            System.out.println("=== convertToUserResponse: Setting createdAt");
+            response.setCreatedAt(user.getCreatedAt());
+            System.out.println("=== convertToUserResponse: Completed successfully");
+            return response;
+        } catch (Exception e) {
+            System.out.println("=== Exception in convertToUserResponse: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

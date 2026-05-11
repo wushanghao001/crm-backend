@@ -53,6 +53,12 @@ public class OrderDetailResponse {
         private Long orderId;
         private String productName;
         private String productCode;
+        private Long projectCodeId;
+        private String projectCodeName;
+        private Long materialCodeId;
+        private String materialCodeName;
+        private Long brandCodeId;
+        private String brandCodeName;
         private BigDecimal unitPrice;
         private Integer quantity;
         private BigDecimal subtotal;

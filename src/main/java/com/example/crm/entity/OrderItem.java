@@ -23,6 +23,18 @@ public class OrderItem {
 
     private String productCode;
 
+    private Long projectCodeId;
+
+    private String projectCodeName;
+
+    private Long materialCodeId;
+
+    private String materialCodeName;
+
+    private Long brandCodeId;
+
+    private String brandCodeName;
+
     private BigDecimal unitPrice;
 
     private Integer quantity;

@@ -12,6 +12,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class ServiceTicketService {
@@ -121,5 +122,21 @@ public class ServiceTicketService {
         }
 
         serviceTicketMapper.deleteById(id);
+    }
+
+    public void batchDeleteTickets(List<Long> ids) {
+        User currentUser = getCurrentUser();
+        boolean isAdmin = "admin".equals(currentUser.getRole());
+
+        for (Long id : ids) {
+            ServiceTicket existing = serviceTicketMapper.selectById(id);
+            if (existing != null) {
+                if (!isAdmin && !existing.getAssigneeId().equals(currentUser.getId())) {
+                    throw new IllegalArgumentException("无权删除服务工单: " + existing.getTitle());
+                }
+            }
+        }
+
+        serviceTicketMapper.deleteBatchIds(ids);
     }
 }

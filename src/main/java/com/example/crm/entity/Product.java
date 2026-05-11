@@ -26,9 +26,27 @@ public class Product {
 
     private Integer stock;
 
+    private Integer availableStock;
+
+    private Integer lockedStock;
+
+    private Integer safeStock;
+
     private String description;
 
     private Integer status;
+
+    private Long projectCodeId;
+
+    private String projectCodeName;
+
+    private Long materialCodeId;
+
+    private String materialCodeName;
+
+    private Long brandCodeId;
+
+    private String brandCodeName;
 
     private LocalDateTime createdAt;
 

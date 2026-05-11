@@ -14,15 +14,18 @@ import java.time.LocalDateTime;
 public class ProductService {
 
     private final ProductMapper productMapper;
+    private final StockLogService stockLogService;
 
-    public ProductService(ProductMapper productMapper) {
+    public ProductService(ProductMapper productMapper, StockLogService stockLogService) {
         this.productMapper = productMapper;
+        this.stockLogService = stockLogService;
     }
 
-    public PageResponse<Product> listProducts(Integer pageNum, Integer pageSize, String keyword, String category, Integer status) {
+    public PageResponse<Product> listProducts(Integer pageNum, Integer pageSize, String keyword, String category, Integer status,
+                                              Long projectCodeId, Long materialCodeId, Long brandCodeId) {
         Page<Product> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<Product> queryWrapper = new LambdaQueryWrapper<>();
-        
+
         if (keyword != null && !keyword.isEmpty()) {
             queryWrapper.like(Product::getName, keyword)
                        .or()
@@ -34,9 +37,18 @@ public class ProductService {
         if (status != null) {
             queryWrapper.eq(Product::getStatus, status);
         }
-        
+        if (projectCodeId != null) {
+            queryWrapper.eq(Product::getProjectCodeId, projectCodeId);
+        }
+        if (materialCodeId != null) {
+            queryWrapper.eq(Product::getMaterialCodeId, materialCodeId);
+        }
+        if (brandCodeId != null) {
+            queryWrapper.eq(Product::getBrandCodeId, brandCodeId);
+        }
+
         IPage<Product> result = productMapper.selectPage(page, queryWrapper);
-        
+
         return new PageResponse<>(result.getRecords(), result.getTotal(), pageNum, pageSize);
     }
 
@@ -47,7 +59,19 @@ public class ProductService {
     public Product createProduct(Product product) {
         product.setCreatedAt(LocalDateTime.now());
         product.setUpdatedAt(LocalDateTime.now());
-        
+
+        if (product.getSafeStock() == null) {
+            product.setSafeStock(5);
+        }
+        if (product.getStock() != null) {
+            product.setAvailableStock(product.getStock());
+            product.setLockedStock(0);
+        } else {
+            product.setStock(0);
+            product.setAvailableStock(0);
+            product.setLockedStock(0);
+        }
+
         productMapper.insert(product);
         return product;
     }
@@ -62,10 +86,28 @@ public class ProductService {
         existing.setCategory(product.getCategory());
         existing.setCode(product.getCode());
         existing.setPrice(product.getPrice());
-        existing.setStock(product.getStock());
         existing.setDescription(product.getDescription());
         existing.setStatus(product.getStatus());
+        existing.setSafeStock(product.getSafeStock());
+        existing.setProjectCodeId(product.getProjectCodeId());
+        existing.setProjectCodeName(product.getProjectCodeName());
+        existing.setMaterialCodeId(product.getMaterialCodeId());
+        existing.setMaterialCodeName(product.getMaterialCodeName());
+        existing.setBrandCodeId(product.getBrandCodeId());
+        existing.setBrandCodeName(product.getBrandCodeName());
         existing.setUpdatedAt(LocalDateTime.now());
+        
+        if (product.getStock() != null && !product.getStock().equals(existing.getStock())) {
+            int oldStock = existing.getStock() != null ? existing.getStock() : 0;
+            int lockedStock = existing.getLockedStock() != null ? existing.getLockedStock() : 0;
+            int newAvailableStock = product.getStock() - lockedStock;
+            if (newAvailableStock < 0) {
+                throw new IllegalArgumentException("调整后可售库存不能为负数，当前预占库存为" + lockedStock);
+            }
+            existing.setStock(product.getStock());
+            existing.setAvailableStock(newAvailableStock);
+            stockLogService.adjustStock(id, product.getStock(), "更新产品时调整库存");
+        }
         
         productMapper.updateById(existing);
         return existing;
@@ -93,5 +135,9 @@ public class ProductService {
         }
         
         return productMapper.exists(queryWrapper);
+    }
+
+    public void adjustStock(Long productId, Integer newStock, String remark) {
+        stockLogService.adjustStock(productId, newStock, remark);
     }
 }

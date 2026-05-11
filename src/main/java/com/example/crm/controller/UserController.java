@@ -34,6 +34,12 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/all")
+    public ResponseEntity<ApiResponse<java.util.List<User>>> getAllUsers() {
+        java.util.List<User> users = userService.getAllUsers();
+        return ResponseEntity.ok(ApiResponse.success(users));
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('admin')")
     public ResponseEntity<ApiResponse<User>> getUser(@PathVariable Long id) {

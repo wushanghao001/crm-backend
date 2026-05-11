@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/customers")
@@ -56,9 +57,16 @@ public class CustomerController {
         return ResponseEntity.ok(ApiResponse.success("认领成功", customer));
     }
 
+    @PostMapping("/{id}/assign")
+    public ResponseEntity<ApiResponse<Customer>> assignCustomer(@PathVariable Long id, @RequestBody Map<String, Long> request) {
+        Long userId = request.get("userId");
+        Customer customer = customerService.assignCustomer(id, userId);
+        return ResponseEntity.ok(ApiResponse.success("分配成功", customer));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Customer>> getCustomer(@PathVariable Long id) {
-        Customer customer = customerService.getCustomerById(id);
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getCustomer(@PathVariable Long id) {
+        Map<String, Object> customer = customerService.getCustomerById(id);
         if (customer == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "客户不存在"));
         }
@@ -81,5 +89,12 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<Void>> deleteCustomer(@PathVariable Long id) {
         customerService.deleteCustomer(id);
         return ResponseEntity.ok(ApiResponse.success("删除成功", null));
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<ApiResponse<Void>> batchDeleteCustomers(@RequestBody java.util.Map<String, Long[]> request) {
+        Long[] ids = request.get("ids");
+        customerService.batchDeleteCustomers(ids);
+        return ResponseEntity.ok(ApiResponse.success("批量删除成功", null));
     }
 }

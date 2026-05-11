@@ -10,6 +10,7 @@ import com.example.crm.entity.Opportunity;
 import com.example.crm.entity.User;
 import com.example.crm.mapper.CustomerMapper;
 import com.example.crm.mapper.OpportunityMapper;
+import com.example.crm.mapper.UserMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
@@ -23,10 +24,12 @@ public class OpportunityService {
 
     private final OpportunityMapper opportunityMapper;
     private final CustomerMapper customerMapper;
+    private final UserMapper userMapper;
 
-    public OpportunityService(OpportunityMapper opportunityMapper, CustomerMapper customerMapper) {
+    public OpportunityService(OpportunityMapper opportunityMapper, CustomerMapper customerMapper, UserMapper userMapper) {
         this.opportunityMapper = opportunityMapper;
         this.customerMapper = customerMapper;
+        this.userMapper = userMapper;
     }
 
     private User getCurrentUser() {
@@ -71,7 +74,27 @@ public class OpportunityService {
                     .collect(Collectors.toMap(Customer::getId, Customer::getName));
         }
 
+        List<Long> ownerIds = result.getRecords().stream()
+                .map(Opportunity::getOwnerId)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        System.out.println("DEBUG ownerIds: " + ownerIds);
+
+        Map<Long, String> ownerNameMapFinal = new java.util.HashMap<>();
+        if (!ownerIds.isEmpty()) {
+            List<User> owners = userMapper.selectBatchIds(ownerIds);
+            System.out.println("DEBUG owners: " + owners);
+            if (owners != null && !owners.isEmpty()) {
+                ownerNameMapFinal = owners.stream()
+                        .collect(Collectors.toMap(User::getId, User::getUsername, (a, b) -> a));
+            }
+        }
+        System.out.println("DEBUG ownerNameMapFinal: " + ownerNameMapFinal);
+
         final Map<Long, String> customerNameMap = customerNameMapFinal;
+        final Map<Long, String> ownerNameMap = ownerNameMapFinal;
 
         List<Map<String, Object>> records = result.getRecords().stream().map(opp -> {
             Map<String, Object> map = new java.util.HashMap<>();
@@ -85,6 +108,7 @@ public class OpportunityService {
             map.put("expectedCloseDate", opp.getExpectedCloseDate());
             map.put("description", opp.getDescription());
             map.put("ownerId", opp.getOwnerId());
+            map.put("ownerName", ownerNameMap.getOrDefault(opp.getOwnerId(), "未知"));
             map.put("createdAt", opp.getCreatedAt());
             map.put("updatedAt", opp.getUpdatedAt());
             return map;
@@ -94,7 +118,7 @@ public class OpportunityService {
         return response;
     }
 
-    public Opportunity getOpportunityById(Long id) {
+    public Map<String, Object> getOpportunityById(Long id) {
         Opportunity opportunity = opportunityMapper.selectById(id);
         if (opportunity == null) {
             throw new IllegalArgumentException("销售机会不存在");
@@ -105,7 +129,37 @@ public class OpportunityService {
             throw new IllegalArgumentException("无权访问此销售机会");
         }
 
-        return opportunity;
+        String ownerName = "未知";
+        if (opportunity.getOwnerId() != null) {
+            User owner = userMapper.selectById(opportunity.getOwnerId());
+            if (owner != null) {
+                ownerName = owner.getUsername();
+            }
+        }
+
+        String customerName = "未知客户";
+        if (opportunity.getCustomerId() != null) {
+            Customer customer = customerMapper.selectById(opportunity.getCustomerId());
+            if (customer != null) {
+                customerName = customer.getName();
+            }
+        }
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("id", opportunity.getId());
+        result.put("customerId", opportunity.getCustomerId());
+        result.put("customerName", customerName);
+        result.put("name", opportunity.getName());
+        result.put("stage", opportunity.getStage());
+        result.put("amount", opportunity.getAmount());
+        result.put("probability", opportunity.getProbability());
+        result.put("expectedCloseDate", opportunity.getExpectedCloseDate());
+        result.put("description", opportunity.getDescription());
+        result.put("ownerId", opportunity.getOwnerId());
+        result.put("ownerName", ownerName);
+        result.put("createdAt", opportunity.getCreatedAt());
+        result.put("updatedAt", opportunity.getUpdatedAt());
+        return result;
     }
 
     public Opportunity createOpportunity(Opportunity opportunity) {
@@ -153,5 +207,21 @@ public class OpportunityService {
         }
 
         opportunityMapper.deleteById(id);
+    }
+
+    public void batchDeleteOpportunities(List<Long> ids) {
+        User currentUser = getCurrentUser();
+        boolean isAdmin = "admin".equals(currentUser.getRole());
+
+        for (Long id : ids) {
+            Opportunity existing = opportunityMapper.selectById(id);
+            if (existing != null) {
+                if (!isAdmin && !existing.getOwnerId().equals(currentUser.getId())) {
+                    throw new IllegalArgumentException("无权删除销售机会: " + existing.getName());
+                }
+            }
+        }
+
+        opportunityMapper.deleteBatchIds(ids);
     }
 }

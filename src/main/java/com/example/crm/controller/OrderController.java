@@ -86,6 +86,24 @@ public class OrderController {
                 orderItem.setProductName((String) item.get("productName"));
                 orderItem.setProductCode((String) item.get("productCode"));
 
+                Object projectCodeIdObj = item.get("projectCodeId");
+                if (projectCodeIdObj != null) {
+                    orderItem.setProjectCodeId(((Number) projectCodeIdObj).longValue());
+                }
+                orderItem.setProjectCodeName((String) item.get("projectCodeName"));
+
+                Object materialCodeIdObj = item.get("materialCodeId");
+                if (materialCodeIdObj != null) {
+                    orderItem.setMaterialCodeId(((Number) materialCodeIdObj).longValue());
+                }
+                orderItem.setMaterialCodeName((String) item.get("materialCodeName"));
+
+                Object brandCodeIdObj = item.get("brandCodeId");
+                if (brandCodeIdObj != null) {
+                    orderItem.setBrandCodeId(((Number) brandCodeIdObj).longValue());
+                }
+                orderItem.setBrandCodeName((String) item.get("brandCodeName"));
+
                 Object unitPriceObj = item.get("unitPrice");
                 if (unitPriceObj != null) {
                     orderItem.setUnitPrice(new java.math.BigDecimal(unitPriceObj.toString()));

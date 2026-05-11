@@ -34,8 +34,8 @@ public class OpportunityController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<Opportunity>> getOpportunity(@PathVariable Long id) {
-        Opportunity opportunity = opportunityService.getOpportunityById(id);
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getOpportunity(@PathVariable Long id) {
+        Map<String, Object> opportunity = opportunityService.getOpportunityById(id);
         if (opportunity == null) {
             return ResponseEntity.ok(ApiResponse.error(404, "销售机会不存在"));
         }
@@ -58,5 +58,15 @@ public class OpportunityController {
     public ResponseEntity<ApiResponse<Void>> deleteOpportunity(@PathVariable Long id) {
         opportunityService.deleteOpportunity(id);
         return ResponseEntity.ok(ApiResponse.success("删除成功", null));
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<ApiResponse<Void>> batchDeleteOpportunities(@RequestBody Map<String, List<Long>> request) {
+        List<Long> ids = request.get("ids");
+        if (ids == null || ids.isEmpty()) {
+            return ResponseEntity.ok(ApiResponse.error(400, "请选择要删除的机会"));
+        }
+        opportunityService.batchDeleteOpportunities(ids);
+        return ResponseEntity.ok(ApiResponse.success("批量删除成功", null));
     }
 }

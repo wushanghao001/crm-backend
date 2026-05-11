@@ -168,6 +168,20 @@ public class MenuService {
     public List<MenuResponse> getPermissionTree() {
         List<MenuResponse> tree = new ArrayList<>();
 
+        MenuResponse dashboardMenu = new MenuResponse();
+        dashboardMenu.setId(0L);
+        dashboardMenu.setName("首页");
+        dashboardMenu.setCode("dashboard");
+        dashboardMenu.setType("menu");
+        dashboardMenu.setSort(0);
+        dashboardMenu.setParentId(0L);
+
+        List<MenuResponse> dashboardChildren = new ArrayList<>();
+        dashboardChildren.add(createPermission(1L, "首页", "dashboard:view", "page", 0L));
+        dashboardChildren.add(createPermission(2L, "管理首页", "admin:dashboard", "page", 0L));
+        dashboardMenu.setChildren(dashboardChildren);
+        tree.add(dashboardMenu);
+
         MenuResponse customerMenu = new MenuResponse();
         customerMenu.setId(1L);
         customerMenu.setName("客户管理");
@@ -193,6 +207,8 @@ public class MenuService {
         customerChildren.add(createPermission(114L, "订单新增", "order:add", "button", 1L));
         customerChildren.add(createPermission(115L, "订单编辑", "order:edit", "button", 1L));
         customerChildren.add(createPermission(116L, "订单删除", "order:delete", "button", 1L));
+        customerChildren.add(createPermission(117L, "客户跟进查询", "follow:view", "page", 1L));
+        customerChildren.add(createPermission(118L, "客户流失", "churn:view", "page", 1L));
         customerMenu.setChildren(customerChildren);
         tree.add(customerMenu);
 
@@ -256,6 +272,18 @@ public class MenuService {
         productChildren.add(createPermission(402L, "产品新增", "product:add", "button", 4L));
         productChildren.add(createPermission(403L, "产品编辑", "product:edit", "button", 4L));
         productChildren.add(createPermission(404L, "产品删除", "product:delete", "button", 4L));
+        productChildren.add(createPermission(405L, "项目号档案维护", "projectcode:view", "page", 4L));
+        productChildren.add(createPermission(406L, "项目号新增", "projectcode:add", "button", 4L));
+        productChildren.add(createPermission(407L, "项目号编辑", "projectcode:edit", "button", 4L));
+        productChildren.add(createPermission(408L, "项目号删除", "projectcode:delete", "button", 4L));
+        productChildren.add(createPermission(409L, "料号档案维护", "materialcode:view", "page", 4L));
+        productChildren.add(createPermission(410L, "料号新增", "materialcode:add", "button", 4L));
+        productChildren.add(createPermission(411L, "料号编辑", "materialcode:edit", "button", 4L));
+        productChildren.add(createPermission(412L, "料号删除", "materialcode:delete", "button", 4L));
+        productChildren.add(createPermission(413L, "牌号档案维护", "brandcode:view", "page", 4L));
+        productChildren.add(createPermission(414L, "牌号新增", "brandcode:add", "button", 4L));
+        productChildren.add(createPermission(415L, "牌号编辑", "brandcode:edit", "button", 4L));
+        productChildren.add(createPermission(416L, "牌号删除", "brandcode:delete", "button", 4L));
         productMenu.setChildren(productChildren);
         tree.add(productMenu);
 

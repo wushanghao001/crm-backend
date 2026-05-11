@@ -5,22 +5,46 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.crm.dto.CustomerRequest;
 import com.example.crm.dto.PageResponse;
+import com.example.crm.entity.Contact;
 import com.example.crm.entity.Customer;
+import com.example.crm.entity.CustomerFollow;
+import com.example.crm.entity.Opportunity;
+import com.example.crm.entity.Order;
 import com.example.crm.entity.User;
+import com.example.crm.mapper.ContactMapper;
+import com.example.crm.mapper.CustomerFollowMapper;
 import com.example.crm.mapper.CustomerMapper;
+import com.example.crm.mapper.OpportunityMapper;
+import com.example.crm.mapper.OrderMapper;
+import com.example.crm.mapper.UserMapper;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class CustomerService {
 
     private final CustomerMapper customerMapper;
+    private final ContactMapper contactMapper;
+    private final OrderMapper orderMapper;
+    private final OpportunityMapper opportunityMapper;
+    private final CustomerFollowMapper customerFollowMapper;
+    private final UserMapper userMapper;
 
-    public CustomerService(CustomerMapper customerMapper) {
+    public CustomerService(CustomerMapper customerMapper, ContactMapper contactMapper, 
+            OrderMapper orderMapper, OpportunityMapper opportunityMapper,
+            CustomerFollowMapper customerFollowMapper, UserMapper userMapper) {
         this.customerMapper = customerMapper;
+        this.contactMapper = contactMapper;
+        this.orderMapper = orderMapper;
+        this.opportunityMapper = opportunityMapper;
+        this.customerFollowMapper = customerFollowMapper;
+        this.userMapper = userMapper;
     }
 
     public PageResponse<Customer> listCustomers(Integer pageNum, Integer pageSize, String keyword, String status, String industry, String listType) {
@@ -30,9 +54,11 @@ public class CustomerService {
         User currentUser = getCurrentUser();
         boolean isAdmin = "admin".equals(currentUser.getRole());
 
-        if (!isAdmin) {
-            if ("public".equals(listType)) {
-                queryWrapper.isNull(Customer::getCreatorId);
+        if ("public".equals(listType)) {
+            queryWrapper.isNull(Customer::getCreatorId);
+        } else {
+            if (isAdmin) {
+                queryWrapper.isNotNull(Customer::getCreatorId);
             } else {
                 queryWrapper.eq(Customer::getCreatorId, currentUser.getId());
             }
@@ -60,7 +86,7 @@ public class CustomerService {
         return new PageResponse<>(result.getRecords(), result.getTotal(), pageNum, pageSize);
     }
 
-    public Customer getCustomerById(Long id) {
+    public Map<String, Object> getCustomerById(Long id) {
         Customer customer = customerMapper.selectById(id);
         if (customer == null) {
             throw new IllegalArgumentException("客户不存在");
@@ -73,7 +99,66 @@ public class CustomerService {
             }
         }
 
-        return customer;
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", customer.getId());
+        result.put("name", customer.getName());
+        result.put("phone", customer.getPhone());
+        result.put("email", customer.getEmail());
+        result.put("address", customer.getAddress());
+        result.put("industry", customer.getIndustry());
+        result.put("scale", customer.getScale());
+        result.put("source", customer.getSource());
+        result.put("status", customer.getStatus());
+        result.put("churnReason", customer.getChurnReason());
+        result.put("customerLevel", customer.getCustomerLevel());
+        result.put("totalAmount", customer.getTotalAmount());
+        result.put("lastContactTime", customer.getLastContactTime());
+        result.put("lastFollowTime", customer.getLastFollowTime());
+        result.put("followCount", customer.getFollowCount());
+        result.put("createdAt", customer.getCreatedAt());
+        result.put("updatedAt", customer.getUpdatedAt());
+
+        result.put("contactName", getCustomerContactName(id.intValue()));
+        result.put("totalPaidAmount", getCustomerTotalPaidAmount(id.intValue()));
+        result.put("currentStage", getCustomerCurrentStage(id.intValue()));
+
+        return result;
+    }
+
+    private String getCustomerContactName(Integer customerId) {
+        if (customerId == null) return null;
+        LambdaQueryWrapper<Contact> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Contact::getCustomerId, customerId.longValue());
+        queryWrapper.orderByDesc(Contact::getCreatedAt);
+        queryWrapper.last("LIMIT 1");
+        Contact contact = contactMapper.selectOne(queryWrapper);
+        return contact != null ? contact.getName() : null;
+    }
+
+    private BigDecimal getCustomerTotalPaidAmount(Integer customerId) {
+        if (customerId == null) return BigDecimal.ZERO;
+        LambdaQueryWrapper<Order> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(Order::getCustomerId, customerId.longValue());
+        queryWrapper.eq(Order::getStatus, "completed");
+        queryWrapper.eq(Order::getPayStatus, "paid");
+        List<Order> orders = orderMapper.selectList(queryWrapper);
+        BigDecimal total = BigDecimal.ZERO;
+        for (Order order : orders) {
+            if (order.getPaidAmount() != null) {
+                total = total.add(order.getPaidAmount());
+            }
+        }
+        return total;
+    }
+
+    private String getCustomerCurrentStage(Integer customerId) {
+        if (customerId == null) return null;
+        LambdaQueryWrapper<CustomerFollow> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(CustomerFollow::getCustomerId, customerId);
+        queryWrapper.orderByDesc(CustomerFollow::getCreatedAt);
+        queryWrapper.last("LIMIT 1");
+        CustomerFollow customerFollow = customerFollowMapper.selectOne(queryWrapper);
+        return customerFollow != null ? customerFollow.getFollowResult() : null;
     }
 
     public Customer createCustomer(CustomerRequest request) {
@@ -172,6 +257,15 @@ public class CustomerService {
         customerMapper.deleteById(id);
     }
 
+    public void batchDeleteCustomers(Long[] ids) {
+        User currentUser = getCurrentUser();
+        if (!"admin".equals(currentUser.getRole())) {
+            throw new IllegalArgumentException("无权批量删除客户");
+        }
+
+        customerMapper.deleteBatchIds(java.util.Arrays.asList(ids));
+    }
+
     public Customer claimCustomer(Long id) {
         Customer customer = customerMapper.selectById(id);
         if (customer == null) {
@@ -184,6 +278,28 @@ public class CustomerService {
 
         User currentUser = getCurrentUser();
         customer.setCreatorId(currentUser.getId());
+        customer.setUpdatedAt(LocalDateTime.now());
+
+        customerMapper.updateById(customer);
+        return customer;
+    }
+
+    public Customer assignCustomer(Long id, Long userId) {
+        Customer customer = customerMapper.selectById(id);
+        if (customer == null) {
+            throw new IllegalArgumentException("客户不存在");
+        }
+
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new IllegalArgumentException("指定的用户不存在");
+        }
+
+        if ("admin".equals(user.getRole())) {
+            throw new IllegalArgumentException("不能分配给管理员账号");
+        }
+
+        customer.setCreatorId(userId);
         customer.setUpdatedAt(LocalDateTime.now());
 
         customerMapper.updateById(customer);

@@ -49,6 +49,10 @@ public class UserService {
         return new PageResponse<>(result.getRecords(), result.getTotal(), pageNum, pageSize);
     }
 
+    public java.util.List<User> getAllUsers() {
+        return userMapper.selectList(null);
+    }
+
     public User getUserById(Long id) {
         return userMapper.selectById(id);
     }
