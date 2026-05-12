@@ -29,10 +29,12 @@ public class CustomerFollowController {
             @RequestParam(required = false) String followType,
             @RequestParam(required = false) String followResult,
             @RequestParam(required = false) String intentLevel,
-            @RequestParam(required = false) Integer followUserId) {
+            @RequestParam(required = false) Integer followUserId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
 
         Map<String, Object> result = customerFollowService.listFollows(
-                customerId, pageNum, pageSize, keyword, followType, followResult, intentLevel, followUserId);
+                customerId, pageNum, pageSize, keyword, followType, followResult, intentLevel, followUserId, startDate, endDate);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 

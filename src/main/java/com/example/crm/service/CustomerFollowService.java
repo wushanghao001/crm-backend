@@ -23,7 +23,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +62,7 @@ public class CustomerFollowService {
         throw new IllegalStateException("无法获取当前用户信息");
     }
 
-    public Map<String, Object> listFollows(Integer customerId, Integer pageNum, Integer pageSize, String keyword, String followType, String followResult, String intentLevel, Integer followUserId) {
+    public Map<String, Object> listFollows(Integer customerId, Integer pageNum, Integer pageSize, String keyword, String followType, String followResult, String intentLevel, Integer followUserId, String startDate, String endDate) {
         User currentUser = getCurrentUser();
         Page<CustomerFollow> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<CustomerFollow> queryWrapper = new LambdaQueryWrapper<>();
@@ -96,6 +98,14 @@ public class CustomerFollowService {
         }
         if (intentLevel != null && !intentLevel.isEmpty()) {
             queryWrapper.eq(CustomerFollow::getIntentLevel, intentLevel);
+        }
+        if (startDate != null && !startDate.isEmpty()) {
+            LocalDate start = LocalDate.parse(startDate);
+            queryWrapper.ge(CustomerFollow::getCreatedAt, start.atStartOfDay());
+        }
+        if (endDate != null && !endDate.isEmpty()) {
+            LocalDate end = LocalDate.parse(endDate);
+            queryWrapper.le(CustomerFollow::getCreatedAt, end.atTime(LocalTime.MAX));
         }
 
         queryWrapper.orderByDesc(CustomerFollow::getCreatedAt);
@@ -186,6 +196,13 @@ public class CustomerFollowService {
         dto.setFollowUserId(follow.getFollowUserId());
         dto.setCreatedAt(follow.getCreatedAt());
         dto.setUpdatedAt(follow.getUpdatedAt());
+
+        if (follow.getFollowUserId() != null) {
+            User user = userMapper.selectById(follow.getFollowUserId());
+            dto.setFollowUserName(user != null ? user.getUsername() : "未知用户");
+        } else {
+            dto.setFollowUserName("未知");
+        }
 
         dto.setContactName(getCustomerContactName(follow.getCustomerId()));
         dto.setTotalPaidAmount(getCustomerTotalPaidAmount(follow.getCustomerId()));
