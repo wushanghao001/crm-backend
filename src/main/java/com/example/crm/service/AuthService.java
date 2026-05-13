@@ -1,4 +1,3 @@
-
 package com.example.crm.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -7,6 +6,7 @@ import com.example.crm.dto.LoginResponse;
 import com.example.crm.dto.RegisterRequest;
 import com.example.crm.dto.UserResponse;
 import com.example.crm.entity.User;
+import com.example.crm.entity.UserSession;
 import com.example.crm.entity.VerificationCode;
 import com.example.crm.mapper.RoleMapper;
 import com.example.crm.mapper.UserMapper;
@@ -27,56 +27,71 @@ public class AuthService {
     private final PasswordUtil passwordUtil;
     private final JwtUtil jwtUtil;
     private final EmailService emailService;
+    private final SessionService sessionService;
 
     private static final SecureRandom random = new SecureRandom();
 
     public AuthService(UserMapper userMapper, RoleMapper roleMapper, VerificationCodeMapper verificationCodeMapper,
-                      PasswordUtil passwordUtil, JwtUtil jwtUtil, EmailService emailService) {
+                      PasswordUtil passwordUtil, JwtUtil jwtUtil, EmailService emailService,
+                      SessionService sessionService) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.verificationCodeMapper = verificationCodeMapper;
         this.passwordUtil = passwordUtil;
         this.jwtUtil = jwtUtil;
         this.emailService = emailService;
+        this.sessionService = sessionService;
     }
 
-    public LoginResponse login(LoginRequest request) {
+    public LoginResponse login(LoginRequest request, String loginIp, String deviceInfo) {
         try {
             System.out.println("=== AuthService.login() called with username: " + request.getUsername());
-            
+
             System.out.println("=== Step 1: Querying user from database...");
             User user = userMapper.findByUsername(request.getUsername());
             System.out.println("=== Step 1 completed: User found: " + (user != null ? user.getUsername() : "null"));
-            
+
             if (user == null) {
                 System.out.println("=== User not found: " + request.getUsername());
                 throw new IllegalArgumentException("用户名或密码错误");
             }
-            
+
             System.out.println("=== Step 2: Checking password...");
             boolean passwordMatch = passwordUtil.matches(request.getPassword(), user.getPassword());
             System.out.println("=== Step 2 completed: Password match: " + passwordMatch);
-            
+
             if (!passwordMatch) {
                 System.out.println("=== Password does not match for user: " + request.getUsername());
                 throw new IllegalArgumentException("用户名或密码错误");
             }
-            
-            System.out.println("=== Step 3: Generating JWT token...");
+
+            System.out.println("=== Step 3: Checking existing session...");
+            UserSession existingSession = sessionService.getActiveSession(user.getId());
+            boolean hasExistingSession = existingSession != null;
+
+            System.out.println("=== Step 4: Generating JWT token...");
             String token = jwtUtil.generateToken(user.getUsername());
-            System.out.println("=== Step 3 completed: Token generated successfully");
-            
-            System.out.println("=== Step 4: Converting to UserResponse...");
+            System.out.println("=== Step 4 completed: Token generated successfully");
+
+            System.out.println("=== Step 5: Creating new session with JWT token...");
+            sessionService.createSessionWithToken(user.getId(), token, loginIp, deviceInfo);
+
+            System.out.println("=== Step 6: Converting to UserResponse...");
             UserResponse userResponse = convertToUserResponse(user);
-            System.out.println("=== Step 4 completed");
-            
-            return new LoginResponse(token, userResponse);
+            System.out.println("=== Step 6 completed");
+
+            System.out.println("=== Login completed. Has existing session: " + hasExistingSession);
+            return new LoginResponse(token, userResponse, hasExistingSession);
         } catch (Exception e) {
             System.out.println("=== Exception in AuthService.login(): " + e.getClass().getName());
             System.out.println("=== Exception message: " + (e.getMessage() != null ? e.getMessage() : "null"));
             e.printStackTrace();
             throw e;
         }
+    }
+
+    public LoginResponse login(LoginRequest request) {
+        return login(request, "unknown", "unknown");
     }
 
     public UserResponse register(RegisterRequest request) {
@@ -181,6 +196,14 @@ public class AuthService {
         return convertToUserResponse(user);
     }
 
+    public void logout(Long userId) {
+        sessionService.deleteUserSessions(userId);
+    }
+
+    public void forceLogout(String sessionToken) {
+        sessionService.deleteSessionByToken(sessionToken);
+    }
+
     private UserResponse convertToUserResponse(User user) {
         try {
             System.out.println("=== convertToUserResponse: Starting conversion for user: " + user.getUsername());
@@ -204,7 +227,6 @@ public class AuthService {
                 String permissions = user.getPermissions();
                 System.out.println("=== convertToUserResponse: User permissions length: " + (permissions != null ? permissions.length() : "null"));
                 if (permissions != null && !permissions.isEmpty()) {
-                    // 防止权限字符串过长导致split耗时
                     if (permissions.length() > 10000) {
                         System.out.println("=== WARNING: Permissions string too long, truncating");
                         permissions = permissions.substring(0, 10000);

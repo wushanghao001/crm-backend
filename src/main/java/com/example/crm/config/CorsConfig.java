@@ -49,6 +49,8 @@ public class CorsConfig {
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         // 允许携带凭证（登录时的cookie/令牌），手机端跨域必备
         config.setAllowCredentials(true);
+        // 暴露自定义响应头，让前端能够读取会话失效标识
+        config.setExposedHeaders(List.of("x-session-invalidated"));
         // 跨域请求缓存时间，减少重复验证，提升手机端登录速度
         config.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

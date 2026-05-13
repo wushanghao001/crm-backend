@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -251,6 +250,7 @@ public class FunnelService {
 
     private LocalDateTime getStartDateTime(String timeRange) {
         LocalDate now = LocalDate.now();
+
         return switch (timeRange.toLowerCase()) {
             case "today" -> now.atStartOfDay();
             case "week" -> now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay();

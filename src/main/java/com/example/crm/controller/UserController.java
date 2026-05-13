@@ -1,14 +1,19 @@
-
 package com.example.crm.controller;
 
 import com.example.crm.dto.ApiResponse;
 import com.example.crm.dto.PageResponse;
 import com.example.crm.entity.User;
+import com.example.crm.entity.UserSession;
+import com.example.crm.service.AuthService;
+import com.example.crm.service.SessionService;
 import com.example.crm.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -16,9 +21,13 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final SessionService sessionService;
+    private final AuthService authService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, SessionService sessionService, AuthService authService) {
         this.userService = userService;
+        this.sessionService = sessionService;
+        this.authService = authService;
     }
 
     @GetMapping
@@ -29,14 +38,14 @@ public class UserController {
             @RequestParam(required = false) String username,
             @RequestParam(required = false) String role,
             @RequestParam(required = false) String status) {
-        
+
         PageResponse<User> response = userService.listUsers(pageNum, pageSize, username, role, status);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/all")
-    public ResponseEntity<ApiResponse<java.util.List<User>>> getAllUsers() {
-        java.util.List<User> users = userService.getAllUsers();
+    public ResponseEntity<ApiResponse<List<User>>> getAllUsers() {
+        List<User> users = userService.getAllUsers();
         return ResponseEntity.ok(ApiResponse.success(users));
     }
 
@@ -85,5 +94,19 @@ public class UserController {
         Long roleId = ((Number) body.get("roleId")).longValue();
         Map<String, Object> result = userService.assignRole(id, roleId);
         return ResponseEntity.ok(ApiResponse.success("角色分配成功", result));
+    }
+
+    @GetMapping("/online")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<ApiResponse<List<UserSession>>> getOnlineUsers() {
+        List<UserSession> sessions = sessionService.getAllActiveSessions();
+        return ResponseEntity.ok(ApiResponse.success(sessions));
+    }
+
+    @DeleteMapping("/session/{userId}")
+    @PreAuthorize("hasRole('admin')")
+    public ResponseEntity<ApiResponse<String>> forceLogoutUser(@PathVariable Long userId) {
+        sessionService.deactivateUserSessions(userId);
+        return ResponseEntity.ok(ApiResponse.success("已将用户踢出登录", null));
     }
 }

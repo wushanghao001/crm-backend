@@ -239,18 +239,18 @@ ALTER TABLE customer ADD COLUMN IF NOT EXISTS follow_count INT DEFAULT 0 COMMENT
 ALTER TABLE customer ADD COLUMN IF NOT EXISTS customer_level VARCHAR(10) DEFAULT 'C' COMMENT '客户等级: A/B/C/D' AFTER status;
 
 -- 插入测试跟进数据
-INSERT IGNORE INTO customer_follow (id, customer_id, follow_type, follow_result, intent_level, content, next_follow_time, follow_user_id) VALUES
-(1, 1, 'phone', 'quotation', 'high', '电话沟通了客户需求，客户表示有明确采购意向，需要提供详细方案', '2026-05-15 10:00:00', 2),
-(2, 1, 'meeting', 'negotiation', 'high', '面谈讨论了商务条款，客户对价格比较敏感，需要再协商', '2026-05-20 14:00:00', 2),
-(3, 2, 'wechat', 'requirement', 'medium', '微信沟通需求细节，客户表示需要内部讨论后决定', '2026-05-18 09:00:00', 2),
-(4, 3, 'email', 'initial_contact', 'low', '发送了公司介绍和产品资料，客户暂无回应', '2026-05-25 10:00:00', 2),
-(5, 4, 'phone', 'lost', 'low', '电话无人接听，发送短信也未回复，标记为客户失联', NULL, 2);
+INSERT IGNORE INTO customer_follow (id, customer_id, follow_type, follow_result, intent_level, content, next_follow_time, follow_user_id, created_at) VALUES
+(1, 1, 'phone', 'quotation', 'high', '电话沟通了客户需求，客户表示有明确采购意向，需要提供详细方案', '2026-05-10 10:00:00', 2, '2026-05-02 09:30:00'),
+(2, 1, 'meeting', 'negotiation', 'high', '面谈讨论了商务条款，客户对价格比较敏感，需要再协商', '2026-05-12 14:00:00', 2, '2026-05-05 11:20:00'),
+(3, 2, 'wechat', 'requirement', 'medium', '微信沟通需求细节，客户表示需要内部讨论后决定', '2026-05-08 09:00:00', 2, '2026-05-03 16:45:00'),
+(4, 3, 'email', 'initial_contact', 'low', '发送了公司介绍和产品资料，客户暂无回应', '2026-05-06 10:00:00', 2, '2026-05-04 08:15:00'),
+(5, 4, 'phone', 'lost', 'low', '电话无人接听，发送短信也未回复，标记为客户失联', NULL, 2, '2026-05-07 17:30:00');
 
 -- 插入测试待办任务
 INSERT IGNORE INTO task (id, title, content, task_type, related_customer_id, related_follow_id, due_date, priority, status, assignee_id, creator_id) VALUES
-(1, '请及时跟进客户：北京科技有限公司', '请及时跟进客户：北京科技有限公司', 'follow', 1, 1, '2026-05-15 10:00:00', 'high', 'pending', 2, 2),
-(2, '请及时跟进客户：北京科技有限公司', '请及时跟进客户：北京科技有限公司', 'follow', 1, 2, '2026-05-20 14:00:00', 'high', 'pending', 2, 2),
-(3, '请及时跟进客户：上海数据科技有限公司', '请及时跟进客户：上海数据科技有限公司', 'follow', 2, 3, '2026-05-18 09:00:00', 'medium', 'pending', 2, 2);
+(1, '请及时跟进客户：北京科技有限公司', '请及时跟进客户：北京科技有限公司', 'follow', 1, 1, '2026-05-10 10:00:00', 'high', 'pending', 2, 2),
+(2, '请及时跟进客户：北京科技有限公司', '请及时跟进客户：北京科技有限公司', 'follow', 1, 2, '2026-05-12 14:00:00', 'high', 'pending', 2, 2),
+(3, '请及时跟进客户：上海数据科技有限公司', '请及时跟进客户：上海数据科技有限公司', 'follow', 2, 3, '2026-05-08 09:00:00', 'medium', 'pending', 2, 2);
 
 -- 插入测试操作日志数据
 INSERT IGNORE INTO operation_log (id, operator, operator_id, type, content, ip, module, target_id, target_name, status, created_at) VALUES
@@ -268,4 +268,4 @@ INSERT IGNORE INTO operation_log (id, operator, operator_id, type, content, ip, 
 (12, 'admin', '1', 'update', '将用户user状态设为启用', '192.168.1.100', 'user', 2, 'user', 1, '2026-05-07 11:05:00'),
 (13, 'user', '2', 'create', '添加客户跟进记录：电话跟进', '192.168.1.101', 'customer_follow', 1, '电话跟进', 1, '2026-05-08 09:15:00'),
 (14, 'user', '2', 'update', '销售阶段从proposal更新为negotiation', '192.168.1.101', 'opportunity', 1, '年度续约项目', 1, '2026-05-08 14:30:00'),
-(15, 'admin', '1', 'update', '为user角色分配客户查看权限', '192.168.1.100', 'role', 2, 'user', 1, '2026-05-08 16:00:00');
+(15, 'admin', '1', 'update', '为user角色分配客户查看权限', '192.168.1.100', 'role', 2, 'user', 1, '2026-05-10 16:00:00');

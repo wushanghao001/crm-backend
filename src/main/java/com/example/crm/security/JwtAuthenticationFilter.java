@@ -1,8 +1,9 @@
-
 package com.example.crm.security;
 
 import com.example.crm.entity.User;
+import com.example.crm.entity.UserSession;
 import com.example.crm.mapper.UserMapper;
+import com.example.crm.service.SessionService;
 import com.example.crm.util.JwtUtil;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -24,60 +25,60 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
     private final UserMapper userMapper;
+    private final SessionService sessionService;
 
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserMapper userMapper) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserMapper userMapper, SessionService sessionService) {
         this.jwtUtil = jwtUtil;
         this.userMapper = userMapper;
+        this.sessionService = sessionService;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        System.out.println("=== JwtAuthenticationFilter: Request URI: " + request.getRequestURI());
-        System.out.println("=== JwtAuthenticationFilter: Request Method: " + request.getMethod());
-        
+
         String token = extractToken(request);
-        System.out.println("=== JwtAuthenticationFilter: Token found: " + (token != null));
-        System.out.println("=== JwtAuthenticationFilter: Token value: " + token);
-        
+        boolean isLogoutRequest = request.getRequestURI().equals("/api/auth/logout");
+
         if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
                 String username = jwtUtil.extractUsername(token);
-                System.out.println("=== JwtAuthenticationFilter: Extracted username: " + username);
-                
+
                 if (username != null && jwtUtil.validateToken(token, username)) {
-                    System.out.println("=== JwtAuthenticationFilter: Token validated successfully");
                     User user = userMapper.findByUsername(username);
-                    System.out.println("=== JwtAuthenticationFilter: User found: " + (user != null));
-                    
+
                     if (user != null) {
-                        System.out.println("=== JwtAuthenticationFilter: User details - ID: " + user.getId() + ", Username: " + user.getUsername() + ", Role: " + user.getRole());
+                        UserSession session = sessionService.getActiveSessionByToken(token);
+
+                        if (session == null) {
+                            if (!isLogoutRequest) {
+                                response.setHeader("X-Session-Invalidated", "true");
+                                response.setStatus(HttpServletResponse.SC_OK);
+                                response.setContentType("application/json;charset=UTF-8");
+                                response.getWriter().write("{\"code\":401,\"message\":\"你的账号已于" + java.time.LocalDateTime.now().toString().substring(0, 19) + "在其他设备登录，若非本人操作，请立即修改登录密码，保障账号安全！\",\"data\":null}");
+                                return;
+                            }
+                        }
+
                         Collection<SimpleGrantedAuthority> authorities = new ArrayList<>();
                         authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
-                        
+
                         if (user.getPermissions() != null) {
                             for (String permission : user.getPermissions().split(",")) {
                                 authorities.add(new SimpleGrantedAuthority(permission.trim()));
                             }
                         }
-                        
+
                         JwtAuthenticationToken authentication = new JwtAuthenticationToken(user, authorities);
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
-                        System.out.println("=== JwtAuthenticationFilter: Authentication set successfully");
                     }
-                } else {
-                    System.out.println("=== JwtAuthenticationFilter: Token validation failed");
                 }
             } catch (Exception e) {
-                System.out.println("=== JwtAuthenticationFilter: Exception: " + e.getMessage());
-                e.printStackTrace();
+                // Token validation failed, continue to next filter
             }
-        } else {
-            System.out.println("=== JwtAuthenticationFilter: Token is null or authentication already set");
         }
-        
-        System.out.println("=== JwtAuthenticationFilter: Continuing filter chain");
+
         filterChain.doFilter(request, response);
     }
 
