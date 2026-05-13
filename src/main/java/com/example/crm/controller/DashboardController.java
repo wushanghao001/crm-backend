@@ -5,8 +5,10 @@ import com.example.crm.config.CacheConfig;
 import com.example.crm.dto.ApiResponse;
 import com.example.crm.entity.*;
 import com.example.crm.mapper.*;
+import com.example.crm.service.WebSocketService;
 import com.github.benmanes.caffeine.cache.Cache;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -26,11 +28,12 @@ public class DashboardController {
     private final OperationLogMapper operationLogMapper;
     private final CustomerFollowMapper customerFollowMapper;
     private final Cache<String, Object> dashboardCache;
+    private final WebSocketService webSocketService;
 
     public DashboardController(UserMapper userMapper, CustomerMapper customerMapper,
                                OpportunityMapper opportunityMapper, OrderMapper orderMapper,
                                OperationLogMapper operationLogMapper, CustomerFollowMapper customerFollowMapper,
-                               Cache<String, Object> dashboardCache) {
+                               Cache<String, Object> dashboardCache, WebSocketService webSocketService) {
         this.userMapper = userMapper;
         this.customerMapper = customerMapper;
         this.opportunityMapper = opportunityMapper;
@@ -38,12 +41,20 @@ public class DashboardController {
         this.operationLogMapper = operationLogMapper;
         this.customerFollowMapper = customerFollowMapper;
         this.dashboardCache = dashboardCache;
+        this.webSocketService = webSocketService;
     }
 
     @GetMapping("/refresh")
     public ResponseEntity<ApiResponse<String>> refreshCache() {
         dashboardCache.invalidateAll();
+        webSocketService.notifyDashboardRefresh();
         return ResponseEntity.ok(ApiResponse.success("刷新成功"));
+    }
+
+    @Scheduled(fixedRate = 60000)
+    public void scheduledDashboardRefresh() {
+        System.out.println("[DashboardController] Scheduled refresh triggered");
+        webSocketService.notifyDashboardRefresh();
     }
 
     @GetMapping("/data")

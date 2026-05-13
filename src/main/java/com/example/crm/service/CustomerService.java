@@ -251,7 +251,9 @@ public class CustomerService {
 
         User currentUser = getCurrentUser();
         if (!"admin".equals(currentUser.getRole())) {
-            throw new IllegalArgumentException("无权删除客户");
+            if (customer.getCreatorId() == null || !customer.getCreatorId().equals(currentUser.getId())) {
+                throw new IllegalArgumentException("无权删除客户");
+            }
         }
 
         customerMapper.deleteById(id);

@@ -37,6 +37,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        String requestUri = request.getRequestURI();
+        if (requestUri.startsWith("/ws") || requestUri.startsWith("/app")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String token = extractToken(request);
         boolean isLogoutRequest = request.getRequestURI().equals("/api/auth/logout");
 

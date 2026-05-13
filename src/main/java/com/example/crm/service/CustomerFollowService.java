@@ -225,7 +225,13 @@ public class CustomerFollowService {
         if (follow.getNextFollowTime() != null && Boolean.TRUE.equals(follow.getRemindFlag())) {
             Task task = new Task();
             task.setTitle("请及时跟进客户");
-            task.setContent("请及时跟进客户ID: " + follow.getCustomerId());
+            Customer customer = customerMapper.selectById(follow.getCustomerId());
+            String customerName = customer != null ? customer.getName() : "未知客户";
+            StringBuilder content = new StringBuilder(customerName);
+            if (follow.getRemark() != null && !follow.getRemark().isEmpty()) {
+                content.append(" - ").append(follow.getRemark());
+            }
+            task.setContent(content.toString());
             task.setTaskType("follow");
             task.setRelatedCustomerId(follow.getCustomerId());
             task.setRelatedFollowId(follow.getId());

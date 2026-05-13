@@ -18,7 +18,7 @@ public class CacheConfig {
     @Primary
     public Cache<String, Object> dashboardCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .expireAfterWrite(2, TimeUnit.MINUTES)
                 .maximumSize(10)
                 .build();
     }
@@ -26,7 +26,7 @@ public class CacheConfig {
     @Bean("personalStatsCache")
     public Cache<String, Object> personalStatsCache() {
         return Caffeine.newBuilder()
-                .expireAfterWrite(5, TimeUnit.MINUTES)
+                .expireAfterWrite(2, TimeUnit.MINUTES)
                 .maximumSize(100)
                 .build();
     }

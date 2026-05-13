@@ -41,41 +41,55 @@ public class TaskService {
     public Map<String, Object> listTasks(Integer pageNum, Integer pageSize, String status) {
         User currentUser = getCurrentUser();
         
-        List<Task> allTasks = new ArrayList<>();
-
-        // 1. 获取手工创建的任务
+        // 1. 只查询 task 表中的任务
         LambdaQueryWrapper<Task> taskQuery = new LambdaQueryWrapper<>();
         if (!"admin".equals(currentUser.getRole())) {
             taskQuery.eq(Task::getAssigneeId, currentUser.getId().intValue());
         }
+        // 如果传入了 status 参数，按 status 过滤；否则查询所有状态
         if (status != null && !status.isEmpty()) {
             taskQuery.eq(Task::getStatus, status);
         }
-        List<Task> manualTasks = taskMapper.selectList(taskQuery);
-        allTasks.addAll(manualTasks);
+        // 按状态排序（pending 在前，completed 在后），然后按 dueDate 排序
+        taskQuery.orderByAsc(Task::getStatus)
+                .orderByAsc(Task::getDueDate);
+        
+        List<Task> allTasks = taskMapper.selectList(taskQuery);
 
-        // 2. 从跟进记录中提取每个客户最新的下次跟进提醒
-        List<Task> followTasks = extractTasksFromFollowRecords(currentUser.getId().intValue(), status);
-        allTasks.addAll(followTasks);
-
-        // 3. 按下次跟进时间排序（优先显示最近需要跟进的），时间相同则按创建时间排序
-        allTasks.sort((t1, t2) -> {
-            LocalDateTime dueDate1 = t1.getDueDate() != null ? t1.getDueDate() : LocalDateTime.MAX;
-            LocalDateTime dueDate2 = t2.getDueDate() != null ? t2.getDueDate() : LocalDateTime.MAX;
-            int dateCompare = dueDate1.compareTo(dueDate2);
-            if (dateCompare != 0) {
-                return dateCompare;
+        // 2. 为任务添加客户名称
+        List<Map<String, Object>> resultList = new ArrayList<>();
+        for (Task task : allTasks) {
+            Map<String, Object> taskMap = new HashMap<>();
+            taskMap.put("id", task.getId());
+            taskMap.put("title", task.getTitle());
+            taskMap.put("content", task.getContent());
+            taskMap.put("taskType", task.getTaskType());
+            taskMap.put("relatedCustomerId", task.getRelatedCustomerId());
+            taskMap.put("relatedFollowId", task.getRelatedFollowId());
+            taskMap.put("dueDate", task.getDueDate());
+            taskMap.put("priority", task.getPriority());
+            taskMap.put("status", task.getStatus());
+            taskMap.put("assigneeId", task.getAssigneeId());
+            taskMap.put("creatorId", task.getCreatorId());
+            taskMap.put("createdAt", task.getCreatedAt());
+            taskMap.put("updatedAt", task.getUpdatedAt());
+            
+            // 添加客户名称
+            if (task.getRelatedCustomerId() != null) {
+                Customer customer = customerMapper.selectById(task.getRelatedCustomerId());
+                taskMap.put("customerName", customer != null ? customer.getName() : "未知客户");
+            } else {
+                taskMap.put("customerName", null);
             }
-            LocalDateTime createdAt1 = t1.getCreatedAt() != null ? t1.getCreatedAt() : LocalDateTime.MIN;
-            LocalDateTime createdAt2 = t2.getCreatedAt() != null ? t2.getCreatedAt() : LocalDateTime.MIN;
-            return createdAt2.compareTo(createdAt1);
-        });
+            
+            resultList.add(taskMap);
+        }
 
-        // 4. 分页处理
-        int total = allTasks.size();
+        // 3. 分页处理
+        int total = resultList.size();
         int start = (pageNum - 1) * pageSize;
         int end = Math.min(start + pageSize, total);
-        List<Task> pageList = start < total ? allTasks.subList(start, end) : new ArrayList<>();
+        List<Map<String, Object>> pageList = start < total ? resultList.subList(start, end) : new ArrayList<>();
 
         Map<String, Object> response = new HashMap<>();
         response.put("list", pageList);
@@ -86,7 +100,7 @@ public class TaskService {
         return response;
     }
 
-    private List<Task> extractTasksFromFollowRecords(Integer userId, String status) {
+    private List<Task> extractTasksFromFollowRecords(Integer userId, String status, Set<Integer> existingFollowIds) {
         List<Task> tasks = new ArrayList<>();
 
         // 查询当前用户有下次跟进时间的跟进记录
@@ -119,6 +133,12 @@ public class TaskService {
         // 转换为任务格式
         for (Map.Entry<Integer, CustomerFollow> entry : latestFollowByCustomer.entrySet()) {
             CustomerFollow follow = entry.getValue();
+            
+            // 如果该跟进记录已经有对应的手工任务，跳过
+            if (existingFollowIds.contains(follow.getId())) {
+                continue;
+            }
+            
             Customer customer = customerMap.get(entry.getKey().longValue()); // 转换为Long类型
 
             // 如果指定了状态筛选，跳过不匹配的
